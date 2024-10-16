@@ -3,18 +3,13 @@
     "linux-rockchip-collabora": {
       "flake": false,
       "locked": {
-        "lastModified": 1728558584,
-        "narHash": "sha256-C3dtl4h0lmxqiZQAQYSUn02fHhfaOH5lX86CJNpKTEk=",
-        "owner": "K900",
-        "repo": "linux",
-        "rev": "e5eeb0b9ee15bdc5fbfe38b5e8c9e6ddab8e5b15",
-        "type": "github"
+        "narHash": "sha256-lQqeZsI1mEkpYxCo+vAAz7wwCCShoFQ1VnNJZpB76aE=",
+        "type": "file",
+        "url": "https://gitlab.collabora.com/hardware-enablement/rockchip-3588/linux.git"
       },
       "original": {
-        "owner": "K900",
-        "ref": "rk3588-test",
-        "repo": "linux",
-        "type": "github"
+        "type": "file",
+        "url": "https://gitlab.collabora.com/hardware-enablement/rockchip-3588/linux.git"
       }
     },
     "nixpkgs": {

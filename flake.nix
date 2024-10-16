@@ -2,11 +2,13 @@
   description = "A mess of NixOS configs";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable-small";
-    nixpkgs.crossSystem.config = "aarch64-unknown-linux-gnu";
 
+    # nix packages version
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable-small";
+
+    # custom kernel
     linux-rockchip-collabora = {
-      url = "github:K900/linux/rk3588-test";
+      url = "https://gitlab.collabora.com/hardware-enablement/rockchip-3588/linux.git";
       flake = false;
     };
 
@@ -14,17 +16,28 @@
   
   outputs = inputs@{ nixpkgs, ... }: rec {
 
-    # Config
+    # config with nixos-system
     nixosConfigurations.opi5b =
       nixpkgs.lib.nixosSystem {
-        system = "aarch64-linux";
+        
+        # needed
+        specialArgs = {
+          inherit inputs;
+        };
+
         modules = [
-          ./orangepi5b.nix
+          {        
+            # cross compile
+            nixpkgs.hostPlatform.system = "aarch64-linux";
+            nixpkgs.buildPlatform.system = "x86_64-linux";
+          }
+          # nixos-system
+          ./orangepi5b.nix 
         ];
     };
 
-    # Orange Pi 5 SBC
-    images.opi5b = nixosConfigurations.opi5b.config.system.build.sdImage;
+    # build with "nix build .opi5b"
+    opi5b = nixosConfigurations.opi5b.config.system.build.sdImage;
 
   };
 }
