@@ -1,5 +1,5 @@
-{ pkgs, inputs, ... }: let
-  
+{ pkgs, ... }: let
+
     # custom kernel
     linux-rockchip-collabora = fetchGit {
         url = "https://gitlab.collabora.com/hardware-enablement/rockchip-3588/linux.git";

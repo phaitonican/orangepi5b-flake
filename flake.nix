@@ -4,8 +4,7 @@
   inputs = {
 
     # nix packages version
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable-small";
-
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
   };
   
@@ -15,16 +14,18 @@
     nixosConfigurations.opi5b =
       nixpkgs.lib.nixosSystem {
         
-        # needed
+
+        system = "x86_64-linux";
+
+        # child inherit nixpkss
         specialArgs = {
-          inherit inputs;
+          inherit nixpkgs;
         };
 
         modules = [
           {        
-            # cross compile
-            nixpkgs.hostPlatform.system = "aarch64-linux";
-            nixpkgs.buildPlatform.system = "x86_64-linux";
+            # target system
+            nixpkgs.crossSystem.config = "aarch64-unknown-linux-gnu";
           }
           # nixos-system
           ./orangepi5b.nix 
