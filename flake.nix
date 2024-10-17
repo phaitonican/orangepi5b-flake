@@ -6,11 +6,6 @@
     # nix packages version
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable-small";
 
-    # custom kernel
-    linux-rockchip-collabora = {
-      url = "https://gitlab.collabora.com/hardware-enablement/rockchip-3588/linux.git";
-      flake = false;
-    };
 
   };
   
@@ -36,7 +31,7 @@
         ];
     };
 
-    # build with "nix build .opi5b"
+    # build with "nix build #.opi5b"
     opi5b = nixosConfigurations.opi5b.config.system.build.sdImage;
 
   };

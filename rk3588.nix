@@ -1,12 +1,20 @@
-{ pkgs, inputs, ... }:
+{ pkgs, inputs, ... }: let
+  
+    # custom kernel
+    linux-rockchip-collabora = fetchGit {
+        url = "https://gitlab.collabora.com/hardware-enablement/rockchip-3588/linux.git";
+        rev = "ca520a6fda92e60490261aeb0b8a5725db1952da";
+    };
+
+in
 {
   boot = {
     kernelPackages = pkgs.linuxPackagesFor (
       pkgs.buildLinux {
-        version = "6.11.3";
-        modDirVersion = "6.11.3";
-        src = inputs.linux-rockchip-collabora;
-        extraMeta.branch = "6.11";
+        version = "6.12.0";
+        modDirVersion = "6.12.0-rc1";
+        src = linux-rockchip-collabora;
+        extraMeta.branch = "6.12";
       }
     );
 
