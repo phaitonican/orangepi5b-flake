@@ -13,7 +13,6 @@
     # config with nixos-system
     nixosConfigurations.opi5b =
       nixpkgs.lib.nixosSystem {
-        
 
         system = "x86_64-linux";
 
