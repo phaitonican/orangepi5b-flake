@@ -2,12 +2,15 @@
 
     # custom kernel
     linux-rockchip-collabora = fetchGit {
-        url = "https://anongit.freedesktop.org/git/drm/drm-misc.git";
+        url = "https://anongit.freedesktop.org/git/drm/drm-misc.git?shallow=true";
         rev = "dadd28d4142f9ad39eefb7b45ee7518bd4d2459c";
         ref = "drm-misc-next";
+        shallow = true;
     };
 
 		hashedPassword = "$7$CU..../....fl8o80QpEM2Ro0B.E5MOF1$j2/9oN2UCciyxJxpaZE1Ta.V1ncHOHwb.W8mQ6C3Bj/"; # "test"
+
+    u-boot-rockchip = ./u-boot-rockchip.bin;
 
 in
 {
@@ -55,7 +58,6 @@ in
       generic-extlinux-compatible.enable = true;
     };
 
-    growPartition = true;
   };
 
   hardware.graphics.enable = true;
@@ -76,7 +78,7 @@ in
   	isNormalUser  = true;
   	home  = "/home/cenk";
   	description  = "Cenk";
-  	extraGroups  = [ "wheel" "networkmanager" "mpd" "input" "adbusers" "kvm" "docker" ];
+  	extraGroups  = [ "wheel" "networkmanager" "mpd" "input" "adbusers" "kvm" "docker" "audio" ];
 	};
 
   # ENV VARS
@@ -91,14 +93,6 @@ in
 		NIXOS_OZONE_WL = "1";
 		ELECTRON_OZONE_PLATFORM_HINT = "wayland";
   };
-
-	# steam
-	programs.steam = {
-  	enable = true;
-  	remotePlay.openFirewall = true; # Open ports in the firewall for Steam Remote Play
-  	dedicatedServer.openFirewall = true; # Open ports in the firewall for Source Dedicated Server
-  	localNetworkGameTransfers.openFirewall = true; # Open ports in the firewall for Steam Local Network Game Transfers
-	};
 
 	# firefox
 	programs.firefox.enable = true;
@@ -249,7 +243,7 @@ in
     imv
     rofi-wayland
     ranger
-    neofetch
+    fastfetch
     mpv
     mako
     p7zip
@@ -260,7 +254,6 @@ in
     playerctl
     mpc-cli
     unzip
-    discord
     prismlauncher
     ffmpeg
     xarchiver
@@ -274,6 +267,8 @@ in
 		rkdeveloptool
 		qemu
 		screen
+    openssl
+    chromium
   ];
 
   sdImage = {
@@ -293,7 +288,7 @@ in
     # image location(sector): 0x40 - u-boot.bin.
     postBuildCommands = ''
       # places the U-Boot image at block first at block 64 (0x40)
-      dd if=${pkgs.ubootOrangePi5}/u-boot-rockchip.bin of=$img seek=64 conv=notrunc
+      dd if=${u-boot-rockchip} of=$img seek=64 conv=notrunc
     '';
   };
 
