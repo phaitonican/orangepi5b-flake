@@ -14,7 +14,7 @@
     nixosConfigurations.opi5b =
       nixpkgs.lib.nixosSystem {
 
-        system = "x86_64-linux";
+        system = "aarch64-linux";
 
         # child inherit nixpkss
         specialArgs = {
@@ -24,7 +24,7 @@
         modules = [
           {        
             # target system
-            nixpkgs.crossSystem.config = "aarch64-unknown-linux-gnu";
+            #nixpkgs.crossSystem.config = "aarch64-unknown-linux-gnu";
           }
           # nixos-system
           ./orangepi5b.nix 
