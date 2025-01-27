@@ -1,12 +1,12 @@
 ## Precompiled u-boot
 
-This provided a precompiled u-boot from master branch aprox. v2025.01 release.
+This provided a precompiled U-boot from master branch aprox. v2025.01 release. Trying to get the custom defconfig pushed to U-boot, to then add it as a nixpkg, so this gets updated regularly.
 
 ## Flashing device (eMMC)
 
 To flash the device you will need rkdeveloptool: https://github.com/rockchip-linux/rkdeveloptool
 
-With power off and the USB-C on the OrangePi 5b connected to your Linux/Mac/PC, hold the [mask button](https://www.friendlyelec.com/image/catalog/description/CM3588_en_05.jpg) and connect power to the device.
+With power off and the USB-C on the OrangePi 5b connected to your Linux/Mac/PC, hold the [maskrom button](https://3dpandme.com/wp-content/uploads/2023/04/image-36.png) and connect power to the device.
 
 Verify that the device appears in maskrom mode:
 
