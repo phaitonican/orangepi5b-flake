@@ -118,5 +118,5 @@ in
       dd if=${u-boot} of=$img seek=64 conv=notrunc
     '';
   };
-  system.stateVersion = "22.11";
+  system.stateVersion = "25.05";
 }
