@@ -2,8 +2,13 @@
   pkgs,
   nixpkgs,
   lib,
+  config,
   ...
-}:
+}: let
+
+  u-boot = ./u-boot.bin;
+
+in
 {
 
   imports = [
@@ -35,6 +40,22 @@
       grub.enable = false;
       generic-extlinux-compatible.enable = true;
     };
+
+    kernelParams = [
+      "rootwait"
+
+      "earlycon" # enable early console, so we can see the boot messages via serial port / HDMI
+      "consoleblank=0" # disable console blanking(screen saver)
+      "console=ttyS2,1500000" # serial port
+      "console=tty1" # HDMI
+
+      # docker optimizations
+      "cgroup_enable=cpuset"
+      "cgroup_memory=1"
+      "cgroup_enable=memory"
+      "swapaccount=1"
+    ];
+
   };
 
   hardware.graphics.enable = true;
@@ -68,7 +89,7 @@
   };
 
   sdImage = {
-    compressImage = true;
+    compressImage = false;
 
     # Gap in front of the /boot/firmware partition, in mebibytes (1024×1024 bytes).
     # Can be increased to make more space for boards requiring to dd u-boot SPL before actual partitions.
@@ -80,15 +101,20 @@
       mkdir -p ./firmware
     '';
 
+    #populateRootCommands = ''
+    #  mkdir -p ./files/boot
+    #'';
+
     populateRootCommands = ''
       mkdir -p ./files/boot
+      ${config.boot.loader.generic-extlinux-compatible.populateCmd} -c ${config.system.build.toplevel} -d ./files/boot
     '';
 
     # ???
     # image location(sector): 0x40 - u-boot.bin.
     postBuildCommands = ''
       # places the U-Boot image at block first at block 64 (0x40)
-      dd if=${pkgs.ubootOrangePi5}/u-boot-rockchip.bin of=$img seek=64 conv=notrunc
+      dd if=${u-boot} of=$img seek=64 conv=notrunc
     '';
   };
   system.stateVersion = "22.11";
