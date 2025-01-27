@@ -1,9 +1,12 @@
+## Precompiled u-boot
+
+This provided a precompiled u-boot from master branch aprox. v2025.01 release.
 
 ## Flashing device (eMMC)
 
 To flash the device you will need rkdeveloptool: https://github.com/rockchip-linux/rkdeveloptool
 
-With power off and the USB-C on the CM3588 NAS connected to your Mac/PC, hold the [mask button](https://www.friendlyelec.com/image/catalog/description/CM3588_en_05.jpg) and connect power to the device.
+With power off and the USB-C on the OrangePi 5b connected to your Linux/Mac/PC, hold the [mask button](https://www.friendlyelec.com/image/catalog/description/CM3588_en_05.jpg) and connect power to the device.
 
 Verify that the device appears in maskrom mode:
 
