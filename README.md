@@ -9,7 +9,7 @@ Verify that the device appears in maskrom mode:
 
 ```shell
 $ rkdeveloptool ld
-DevNo=1	Vid=0x2207,Pid=0x350b,LocationID=802	Maskrom
+DevNo=1	Vid=0x2207,Pid=0x350b,LocationID=301	Maskrom
 ```
 
 Build the RK3588 loader:
@@ -22,14 +22,14 @@ git clone https://github.com/rockchip-linux/rkbin --depth 1
 Push the loader to the device:
 
 ```shell
-$ rkdeveloptool db rkbin/rk3588_spl_loader_v1.16.113.bin
-$ rkdeveloptool ul rkbin/rk3588_spl_loader_v1.16.113.bin
+$ rkdeveloptool db rkbin/rk3588_spl_loader_v1.18.113.bin
+$ rkdeveloptool ul rkbin/rk3588_spl_loader_v1.18.113.bin
 ```
 
 Flash the image to the device:
 
 ```shell
-$ rkdeveloptool wl 0 core-image-full-cmdline-nanopc-nas.rootfs.wic
+$ rkdeveloptool wl 0 result/sd-image/nixos-image-sd-card-25.05.20250124.825479c-aarch64-linux.img
 ```
 
 Reboot device:

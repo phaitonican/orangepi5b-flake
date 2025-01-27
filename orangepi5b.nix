@@ -6,7 +6,7 @@
   ...
 }: let
 
-  u-boot = ./u-boot.bin;
+  u-boot = ./u-boot-new.bin;
 
 in
 {
