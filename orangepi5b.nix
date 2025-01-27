@@ -4,7 +4,8 @@
   lib,
   config,
   ...
-}: let
+}:
+let
 
   u-boot = ./u-boot-new.bin;
 
