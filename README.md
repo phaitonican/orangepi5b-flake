@@ -4,7 +4,7 @@ This provided a precompiled U-boot from master branch aprox. v2025.01 release. T
 
 ## Flashing device (eMMC)
 
-To flash the device you will need rkdeveloptool: https://github.com/rockchip-linux/rkdeveloptool
+To flash the device you will need rkdeveloptool: https://github.com/rockchip-linux/rkdeveloptool (this is on nixpkgs, you can just install this if you use Nix Package Manager)
 
 With power off and the USB-C on the OrangePi 5b connected to your Linux/Mac/PC, hold the [maskrom button](https://3dpandme.com/wp-content/uploads/2023/04/image-36.png) and connect power to the device.
 
