@@ -26,6 +26,7 @@ in
   };
 
   hardware.deviceTree.name = "rockchip/rk3588s-orangepi-5b.dtb";
+  hardware.enableAllFirmware = true;
 
   boot = {
     # fix zfs broken module
