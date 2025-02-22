@@ -16,6 +16,8 @@ in
     "${nixpkgs}/nixos/modules/installer/sd-card/sd-image.nix"
   ];
 
+  nixpkgs.config.allowUnfree = true;
+
   boot.kernelPackages = pkgs.linuxPackages_latest;
 
   nix.settings = {
