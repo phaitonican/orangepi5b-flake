@@ -1,6 +1,14 @@
 ## Precompiled u-boot
 
-This provided a precompiled U-boot from master branch aprox. v2025.01 release. Trying to get the custom defconfig pushed to U-boot, to then add it as a nixpkg, so this gets updated regularly.
+This provided a precompiled U-boot from master branch aprox. v2025.01 release.
+
+## Build Image
+
+```shell
+nix build #.opi5b
+```
+
+the output will be at `result/sd-image/nixos-image-sd-card-...`
 
 ## Flashing device (eMMC)
 
