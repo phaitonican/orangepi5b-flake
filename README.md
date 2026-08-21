@@ -2,7 +2,10 @@
 
 This provided a precompiled U-boot from master branch aprox. v2025.01 release.
 
-## Build Image
+# Configure & Build Image
+Before building change the configuration in the `orangepi5b.nix` file to your likes (for example change the username etc.).
+
+Then:
 
 ```shell
 nix build #.opi5b
@@ -10,7 +13,7 @@ nix build #.opi5b
 
 the output will be at `result/sd-image/nixos-image-sd-card-...`
 
-## Flashing device (eMMC)
+# Flashing device (eMMC)
 
 To flash the device you will need rkdeveloptool: https://github.com/rockchip-linux/rkdeveloptool (this is on nixpkgs, you can just install this if you use Nix Package Manager).
 
