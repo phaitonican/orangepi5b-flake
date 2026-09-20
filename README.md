@@ -8,7 +8,7 @@ Before building change the configuration in the `orangepi5b.nix` file to your li
 Then:
 
 ```shell
-nix build #.opi5b
+nix build .#opi5b
 ```
 
 the output will be at `result/sd-image/nixos-image-sd-card-...`
