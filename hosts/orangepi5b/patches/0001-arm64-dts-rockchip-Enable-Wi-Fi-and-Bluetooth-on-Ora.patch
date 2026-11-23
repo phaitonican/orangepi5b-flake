@@ -1,0 +1,132 @@
+From b0485aaaa0ee160f880f180cca7727fb3514be38 Mon Sep 17 00:00:00 2001
+From: Cenk Uluisik <cenk.uluisik@googlemail.com>
+Date: Mon, 23 Nov 2026 01:45:14 +0100
+Subject: [PATCH] arm64: dts: rockchip: Enable Wi-Fi and Bluetooth on Orange Pi
+ 5B
+
+The Orange Pi 5B carries an AP6275P module: a BCM43752 Wi-Fi chip on
+PCIe plus a companion Bluetooth chip on UART9.
+
+Describe the Wi-Fi side below the pcie2x1l2 controller. The module's
+WL_REG_ON line (GPIO0_PD0) is modelled as a fixed regulator and used
+as the PCIe 3.3V supply, and the PCIe reset line (GPIO3_PD1) gets its
+pinctrl group.
+
+Describe the Bluetooth side on UART9 with hardware flow control.
+GPIO3_PA6 drives BT_REG_ON, GPIO0_PC6 is BT_WAKE, GPIO0_PC5 is the
+host wake interrupt, and the 32.768 kHz LPO clock comes from the
+hym8563 RTC.
+
+The plain Orange Pi 5 has no wireless module, so keep these nodes in
+the 5B device tree and leave rk3588s-orangepi-5-5b.dtsi shared with
+it untouched.
+
+Signed-off-by: Cenk Uluisik <cenk.uluisik@googlemail.com>
+---
+ .../boot/dts/rockchip/rk3588s-orangepi-5b.dts | 88 +++++++++++++++++++
+ 1 file changed, 88 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3588s-orangepi-5b.dts b/arch/arm64/boot/dts/rockchip/rk3588s-orangepi-5b.dts
+index 8af174777..384a70e4f 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3588s-orangepi-5b.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3588s-orangepi-5b.dts
+@@ -12,8 +12,96 @@ aliases {
+ 		mmc0 = &sdhci;
+ 		mmc1 = &sdmmc;
+ 	};
++
++	vcc3v3_wifi: regulator-vcc3v3-wifi {
++		compatible = "regulator-fixed";
++		enable-active-high;
++		gpio = <&gpio0 RK_PD0 GPIO_ACTIVE_HIGH>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&wifi_reg_on>;
++		regulator-name = "vcc3v3_wifi";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		startup-delay-us = <50000>;
++		vin-supply = <&vcc_3v3_s3>;
++	};
++};
++
++&pcie2x1l2 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pcie2_2_rst>;
++	reset-gpios = <&gpio3 RK_PD1 GPIO_ACTIVE_HIGH>;
++	vpcie3v3-supply = <&vcc3v3_wifi>;
++	status = "okay";
++
++	pcie@0,0 {
++		reg = <0x400000 0 0 0 0>;
++		#address-cells = <3>;
++		#size-cells = <2>;
++		ranges;
++		device_type = "pci";
++		bus-range = <0x40 0x4f>;
++
++		wifi: wifi@0,0 {
++			compatible = "pci14e4,449d";
++			reg = <0x410000 0 0 0 0>;
++			clocks = <&hym8563>;
++			clock-names = "lpo";
++		};
++	};
++};
++
++&pinctrl {
++	bluetooth {
++		bt_reset_pin: bt-reset-pin {
++			rockchip,pins = <3 RK_PA6 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++
++		bt_wake_pin: bt-wake-pin {
++			rockchip,pins = <0 RK_PC6 RK_FUNC_GPIO &pcfg_pull_down>;
++		};
++
++		bt_wake_host_irq: bt-wake-host-irq {
++			rockchip,pins = <0 RK_PC5 RK_FUNC_GPIO &pcfg_pull_down>;
++		};
++	};
++
++	pcie {
++		pcie2_2_rst: pcie2-2-rst {
++			rockchip,pins = <3 RK_PD1 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++	};
++
++	wlan {
++		wifi_reg_on: wifi-reg-on {
++			rockchip,pins = <0 RK_PD0 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++	};
+ };
+ 
+ &sdhci {
+ 	status = "okay";
+ };
++
++&uart9 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart9m2_xfer &uart9m2_ctsn &uart9m2_rtsn>;
++	uart-has-rtscts;
++	status = "okay";
++
++	bluetooth {
++		compatible = "brcm,bcm43438-bt";
++		clocks = <&hym8563>;
++		clock-names = "lpo";
++		device-wakeup-gpios = <&gpio0 RK_PC6 GPIO_ACTIVE_HIGH>;
++		interrupt-names = "host-wakeup";
++		interrupt-parent = <&gpio0>;
++		interrupts = <RK_PC5 IRQ_TYPE_LEVEL_HIGH>;
++		max-speed = <1500000>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&bt_wake_host_irq &bt_wake_pin &bt_reset_pin>;
++		shutdown-gpios = <&gpio3 RK_PA6 GPIO_ACTIVE_HIGH>;
++		vbat-supply = <&vcc_3v3_s3>;
++		vddio-supply = <&vcc_1v8_s3>;
++	};
++};
+-- 
+2.56.0
+

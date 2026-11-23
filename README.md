@@ -29,6 +29,7 @@ profile module:
 | `hosts/orangepi5b/full.nix` | GPU/NPU/media profile |
 | `hosts/orangepi5b/u-boot.nix` | U-Boot built from upstream, with the 5B defconfig |
 | `hosts/orangepi5b/u-boot/defconfig` | U-Boot config for the 5B (upstream has none) |
+| `hosts/orangepi5b/patches/` | Kernel patches applied via `boot.kernelPatches` (5B Wi-Fi/Bluetooth DT) |
 
 ## Full image features
 
@@ -48,9 +49,13 @@ The latest mainline kernel has good RK3588S support, so the full profile enables
   analog audio codec** are described by the mainline device tree.
 
 WiFi/Bluetooth is enabled in **both** images. The BCM43752/AP6275P enumerates
-over PCIe on the latest kernel, but `linux-firmware` still does not contain its
-firmware, so the vendor files are pinned from
-`orangepi-xunlong/firmware`:
+over PCIe on the latest kernel, but the upstream device tree does not describe
+it yet, so `hosts/orangepi5b/patches/` adds the Wi-Fi node on PCIe and the
+Bluetooth node on UART9 with hardware flow control. The patch is applied via
+`boot.kernelPatches`, so the kernel's DTB includes it.
+
+`linux-firmware` still does not contain the module's firmware, so the vendor
+files are pinned from `orangepi-xunlong/firmware`:
 
 - `brcmfmac43752-pcie.bin`
 - `brcmfmac43752-pcie.txt`

@@ -65,6 +65,16 @@ in
     # eMMC driver.
     kernelPackages = pkgs.linuxPackages_latest;
 
+    # Wi-Fi and Bluetooth on the 5B are not described by the upstream device
+    # tree yet. The patch only touches rk3588s-orangepi-5b.dts, so the kernel
+    # rebuilds its DTB with the AP6275P nodes included.
+    kernelPatches = [
+      {
+        name = "orangepi-5b-wifi-bluetooth";
+        patch = ./patches/0001-arm64-dts-rockchip-Enable-Wi-Fi-and-Bluetooth-on-Ora.patch;
+      }
+    ];
+
     kernelParams = [
       "rootwait"
       "earlycon" # early serial output on the 3-pin UART header
