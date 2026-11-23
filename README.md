@@ -154,7 +154,13 @@ to write the `.img` file.
 ## Flash the eMMC (maskrom mode)
 
 You need [`rkdeveloptool`](https://github.com/rockchip-linux/rkdeveloptool),
-which is included in the dev shell.
+which is included in the dev shell. Enter the dev shell from the flake root
+first, so the commands below are on `PATH`:
+
+```shell
+cd /path/to/orangepi5b-flake
+nix develop
+```
 
 1. Power off the board, connect the USB-C port to your PC, hold the maskrom
    button, then apply power.
