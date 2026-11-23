@@ -20,6 +20,9 @@ sudo dd if=result-server/sd-image/nixos-image-sd-card-server-*.img \
   of=/dev/sdX bs=4M status=progress conv=fsync
 ```
 
+To install to the eMMC instead, use maskrom mode as described in
+[Flash the eMMC (maskrom mode)](#flash-the-emmc-maskrom-mode).
+
 Boot the board, log in as `nixos` with password `nixos`, and run `passwd`.
 See [Build](#build), [Flash an SD card](#flash-an-sd-card) and
 [First boot](#first-boot) for details.
