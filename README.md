@@ -163,16 +163,18 @@ which is included in the dev shell.
 
    ```shell
    git clone https://github.com/rockchip-linux/rkbin --depth 1
-   (cd rkbin; ./tools/boot_merger RKBOOT/RK3588MINIALL.ini)
+   cd rkbin
+   ./tools/boot_merger RKBOOT/RK3588MINIALL.ini
+   cd ..
    ```
 
 4. Upload the loader and write the chosen image:
 
    ```shell
-   rkdeveloptool db rkbin/rk3588_spl_loader_*.bin
-   rkdeveloptool ul rkbin/rk3588_spl_loader_*.bin
-   rkdeveloptool wl 0 result-full/sd-image/nixos-image-full-sd-card-*.img
-   rkdeveloptool rd
+   sudo rkdeveloptool db rkbin/rk3588_loader_*.bin
+   sudo rkdeveloptool ul rkbin/rk3588_loader_*.bin
+   sudo rkdeveloptool wl 0 result-full/sd-image/nixos-image-full-sd-card-*.img
+   sudo rkdeveloptool rd
    ```
 
 ## Login
