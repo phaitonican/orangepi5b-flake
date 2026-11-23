@@ -56,19 +56,11 @@
       nixosConfigurations = {
         orangepi5b-server = server;
         orangepi5b-full = full;
-
-        # Legacy aliases: the old single configuration was the full image.
-        opi5b = full;
-        orangepi5b = full;
       };
 
       packages.${buildSystem} = {
-        # Keep `nix build` on the full image to avoid surprising existing
-        # users. Use `nix build .#server` for the minimal image.
-        default = fullImage;
         server = serverImage;
         full = fullImage;
-        opi5b = fullImage;
         inherit uboot;
       };
 
