@@ -1,9 +1,9 @@
 # U-Boot for the Orange Pi 5B, cross-compiled from an upstream release.
 #
-# Upstream has a device tree for the 5B, but no defconfig, so the defconfig in
-# the repository is installed into the source tree before configuring. It is
-# the upstream Orange Pi 5 defconfig with the RK3588 eMMC controller enabled
-# and the 5B device tree selected.
+# Upstream has a device tree for the 5B, but no defconfig, so u-boot/defconfig
+# is installed into the source tree before configuring. It is the upstream
+# Orange Pi 5 defconfig with the RK3588 eMMC controller enabled and the 5B
+# device tree selected.
 {
   fetchFromGitHub,
   pkgsCross,
@@ -43,7 +43,7 @@ base.overrideAttrs (old: {
   # and add our defconfig to the source tree.
   postPatch = ''
     ${old.postPatch or ""}
-    install -Dm644 ${../../orangepi-5b-rk3588s_defconfig} configs/orangepi-5b-rk3588s_defconfig
+    install -Dm644 ${./u-boot/defconfig} configs/orangepi-5b-rk3588s_defconfig
   '';
 
   meta = (old.meta or { }) // {

@@ -22,7 +22,7 @@
       pkgs = nixpkgs.legacyPackages.${buildSystem};
 
       # Upstream U-Boot has a device tree but no defconfig for the 5B, so it is
-      # built from the defconfig in this repository. The plain nixpkgs
+      # built from hosts/orangepi5b/u-boot/defconfig. The plain nixpkgs
       # ubootOrangePi5 package supplies the RK3588 BL31/TPL blobs.
       uboot = pkgs.callPackage ./hosts/orangepi5b/u-boot.nix {
         pkgsCross = pkgs.pkgsCross.aarch64-multiplatform;

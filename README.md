@@ -28,7 +28,7 @@ profile module:
 | `hosts/orangepi5b/server.nix` | Minimal server profile |
 | `hosts/orangepi5b/full.nix` | GPU/NPU/media profile |
 | `hosts/orangepi5b/u-boot.nix` | U-Boot built from upstream, with the 5B defconfig |
-| `orangepi-5b-rk3588s_defconfig` | U-Boot config for the 5B (upstream has none) |
+| `hosts/orangepi5b/u-boot/defconfig` | U-Boot config for the 5B (upstream has none) |
 
 ## Full image features
 
@@ -217,7 +217,7 @@ U-Boot is now built from the upstream release pinned in
 `firmwarePartitionOffset` is 32 MiB. `nix build .#uboot` builds just U-Boot.
 
 Upstream has a device tree for the 5B but no defconfig, so
-`orangepi-5b-rk3588s_defconfig` is installed into the source tree before
+`hosts/orangepi5b/u-boot/defconfig` is installed into the source tree before
 configuring. It is the upstream Orange Pi 5 defconfig plus:
 
 - `CONFIG_DEFAULT_DEVICE_TREE` / `CONFIG_DEFAULT_FDT_FILE` pointing at
@@ -234,4 +234,4 @@ To update U-Boot, change `version` (and `hash`) in
 `hosts/orangepi5b/u-boot.nix`; `nix build .#uboot` will report the correct
 hash if it is stale. If the new release needs different options, regenerate
 the defconfig with `make savedefconfig` in a U-Boot tree and copy the result
-over `orangepi-5b-rk3588s_defconfig`.
+over `hosts/orangepi5b/u-boot/defconfig`.
