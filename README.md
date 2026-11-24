@@ -78,6 +78,9 @@ The rest of the stack is enabled as well:
   modules
 - full `linux-firmware` (Broadcom/Cypress, Mali, etc.)
 - the wireless regulatory database
+- Wi-Fi power save disabled (`wifi.powersave = false`), since brcmfmac's power
+  save drops frames and stalls TCP sessions (see
+  [SSH hangs or freezes over Wi-Fi](#ssh-hangs-or-freezes-over-wi-fi))
 
 `nmcli` and `bluetoothctl` are therefore available. After rebuilding,
 `brcmfmac` should load the 43752 firmware instead of failing with `-2
@@ -126,10 +129,10 @@ but disables:
 - `rkmon` and the `video`/`render`/`audio` group memberships.
 
 Otherwise the configuration stays close to a stock NixOS installation:
-documentation, default packages, journald limits, swap, Nix GC and the
-network stack are left at their NixOS defaults. Only board support (kernel,
-initramfs, device tree, firmware and U-Boot) and the `nixos` user are set
-explicitly.
+documentation, default packages, journald limits, swap and Nix GC are left at
+their NixOS defaults. Only board support (kernel, initramfs, device tree,
+firmware and U-Boot), the `nixos` user and Wi-Fi power save (see [SSH hangs or
+freezes over Wi-Fi](#ssh-hangs-or-freezes-over-wi-fi)) are set explicitly.
 
 ### Not supported by mainline yet
 
@@ -255,6 +258,51 @@ sudo nixos-rebuild switch --flake .#orangepi5b-server
 # or
 sudo nixos-rebuild switch --flake .#orangepi5b-full
 ```
+
+## SSH hangs or freezes over Wi-Fi
+
+Symptom: `ssh` to the board hangs at `Connecting to ...` and times out, or an
+established session freezes, while `ping`, DNS and other traffic keep
+working. Other clients (phones, `nc`, `ping`) connect fine.
+
+The board is a Wi-Fi client, and OpenSSH marks interactive sessions with
+DSCP EF by default (`IPQoS ef`). Some routers drop or stall frames in
+certain DSCP classes on the way to a Wi-Fi client — this was observed with a
+Telekom Speedport router (`*.speedport.ip`), where `cs1`, `af11`, `af21` and
+`ef` timed out but `cs0` worked. The marking comes from the SSH client, not
+from the board, so any unmodified OpenSSH client on the same network is
+affected, while apps that do not set DSCP (e.g. phone SSH clients) are not.
+
+To confirm, compare a connection with and without the marking:
+
+```shell
+ssh -o IPQoS=none nixos@orangepi5b uptime   # works
+ssh -o IPQoS=ef   nixos@orangepi5b uptime   # hangs
+```
+
+Workaround on the client in `~/.ssh/config`. `IPQoS none` avoids the broken
+queue; the keepalives make a stalled connection fail after ~45 s instead of
+hanging forever:
+
+```text
+Host orangepi5b
+    IPQoS none
+    TCPKeepAlive yes
+    ServerAliveInterval 15
+    ServerAliveCountMax 3
+```
+
+`services.openssh.settings.IPQoS = "none";` in
+`hosts/orangepi5b/common.nix` stops the board's `sshd` from marking its own
+traffic, but it does not help when the client marks packets, so the
+client-side setting is the one that fixes the symptom.
+
+The actual fix is on the router (disable WMM/QoS, or update its firmware) or
+on the link (connect the board over Ethernet). The
+`networking.networkmanager.wifi.powersave = false` setting in `common.nix`
+also helps, because brcmfmac's power save is what makes the Wi-Fi frame loss
+visible. After a rebuild, check with `ssh -o IPQoS=ef` whether the
+workaround is still needed.
 
 ## Grow the root partition
 

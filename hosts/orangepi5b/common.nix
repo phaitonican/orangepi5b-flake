@@ -167,6 +167,12 @@ in
   # regulatory domain and pulls in wpa_supplicant.
   networking.networkmanager.enable = true;
 
+  # brcmfmac's power save on the AP6275P makes the link drop frames and adds
+  # multi-100 ms latency spikes, which stalls TCP sessions (SSH freezes) on an
+  # otherwise healthy connection. The board is mains-powered, so keep the
+  # radio awake.
+  networking.networkmanager.wifi.powersave = false;
+
   services.openssh = {
     # Not part of a stock NixOS install, but the only way to administer a
     # headless board. Password authentication is left at the NixOS default
