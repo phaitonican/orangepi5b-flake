@@ -292,11 +292,6 @@ Host orangepi5b
     ServerAliveCountMax 3
 ```
 
-`services.openssh.settings.IPQoS = "none";` in
-`hosts/orangepi5b/common.nix` stops the board's `sshd` from marking its own
-traffic, but it does not help when the client marks packets, so the
-client-side setting is the one that fixes the symptom.
-
 The actual fix is on the router (disable WMM/QoS, or update its firmware) or
 on the link (connect the board over Ethernet). The
 `networking.networkmanager.wifi.powersave = false` setting in `common.nix`
