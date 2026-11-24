@@ -2,6 +2,9 @@
 
 Two NixOS SD-card images for the Orange Pi 5B. Both are cross-compiled on an
 `x86_64-linux` machine, so no emulation or second build machine is needed.
+The `nixosConfigurations` used on the board itself stay native
+(`aarch64-linux`), so `nixos-rebuild switch` there does not need x86_64 build
+tools.
 
 ## Quick start
 
@@ -172,8 +175,12 @@ result-server/sd-image/nixos-image-sd-card-server-*.img
 result-full/sd-image/nixos-image-full-sd-card-*.img
 ```
 
-The first build cross-compiles quite a few packages. Later builds reuse the
-Nix store. Formatting and flashing tools are available in the dev shell:
+On `x86_64-linux`, `nix build .#server`/`.#full` selects the cross-compiled
+image. On the board, the same attributes build the image natively. The first
+cross build compiles quite a few packages; later builds reuse the Nix store.
+The NixOS configurations themselves are always native, which is what
+`nixos-rebuild` uses on the board. Formatting and flashing tools are available
+in the dev shell:
 
 ```shell
 nix develop
@@ -258,6 +265,9 @@ sudo nixos-rebuild switch --flake .#orangepi5b-server
 # or
 sudo nixos-rebuild switch --flake .#orangepi5b-full
 ```
+
+These configurations are built natively for `aarch64-linux`; the x86_64 cross
+setup only applies to the SD-card images built from the `packages` output.
 
 ## SSH hangs or freezes over Wi-Fi
 
