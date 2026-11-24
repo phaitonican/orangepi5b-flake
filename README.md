@@ -147,7 +147,7 @@ freezes over Wi-Fi](#ssh-hangs-or-freezes-over-wi-fi)) are set explicitly.
 
 | File | Purpose |
 | --- | --- |
-| `flake.nix` | Inputs, cross-compilation platforms, both variants, dev shell |
+| `flake.nix` | Inputs, native and cross configurations, both variants, dev shell |
 | `hosts/orangepi5b/common.nix` | Shared kernel, boot, storage, users, services, SD-image assembly |
 | `hosts/orangepi5b/server.nix` | Minimal server profile |
 | `hosts/orangepi5b/full.nix` | GPU/NPU/media profile |
@@ -267,7 +267,73 @@ sudo nixos-rebuild switch --flake .#orangepi5b-full
 ```
 
 These configurations are built natively for `aarch64-linux`; the x86_64 cross
-setup only applies to the SD-card images built from the `packages` output.
+setup only applies to the SD-card image builds and to the `*-cross`
+configurations described below.
+
+## Deploy over the network
+
+`nixos-rebuild` can build and activate the board from another machine over
+SSH, without logging in to the board.
+
+### Cross-build on x86_64 and push
+
+The `*-cross` configurations are the same systems as the image builds: they
+are cross-compiled on `x86_64-linux` and then copied to the board. This is the
+fastest option, because the x86_64 machine does the work.
+
+```shell
+nixos-rebuild switch --flake .#orangepi5b-full-cross \
+  --target-host root@orangepi5b
+```
+
+Use `.#orangepi5b-server-cross` for the server profile.
+
+This needs root SSH access to the board. Add a key for root in
+`hosts/orangepi5b/common.nix`, then switch once on the board to activate it:
+
+```nix
+users.users.root.openssh.authorizedKeys.keys = [
+  "ssh-ed25519 AAAA... you@example"
+];
+```
+
+To deploy as the unprivileged `nixos` user instead, the board's Nix daemon
+must trust that user (otherwise copying the new system fails with *lacks a
+signature by a trusted key*), and `nixos-rebuild` must elevate with `sudo` on
+the target. Add this to `hosts/orangepi5b/common.nix` and switch once on the
+board:
+
+```nix
+nix.settings.trusted-users = [ "@wheel" ];
+```
+
+```shell
+nixos-rebuild switch --flake .#orangepi5b-full-cross \
+  --target-host nixos@orangepi5b \
+  --sudo --ask-sudo-password
+```
+
+`--ask-sudo-password` prompts for the `nixos` user's password on the board.
+`--sudo`/`--ask-sudo-password` are the current `nixos-rebuild-ng` flags;
+older `nixos-rebuild` versions spell this `--use-remote-sudo`.
+
+### Build on the board
+
+Alternatively, let the board build its native configuration. This avoids the
+cross toolchain and the `trusted-users` requirement, but the board's CPU does
+the work (unchanged store paths are still reused):
+
+```shell
+nixos-rebuild switch --flake .#orangepi5b-full \
+  --target-host root@orangepi5b \
+  --build-host root@orangepi5b
+```
+
+Both methods accept SSH options via `NIX_SSHOPTS`, for example:
+
+```shell
+export NIX_SSHOPTS="-p 2222 -i ~/.ssh/orangepi5b"
+```
 
 ## SSH hangs or freezes over Wi-Fi
 

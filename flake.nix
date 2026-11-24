@@ -96,8 +96,15 @@
     in
     {
       nixosConfigurations = {
+        # Native configurations for `nixos-rebuild switch` on the board.
         orangepi5b-server = server;
         orangepi5b-full = full;
+
+        # Cross-compiled variants for deploying from an x86_64 machine over
+        # SSH, e.g. `nixos-rebuild switch --flake .#orangepi5b-full-cross
+        # --target-host ...` (see README).
+        orangepi5b-server-cross = imageServer;
+        orangepi5b-full-cross = imageFull;
       };
 
       packages = {
