@@ -256,6 +256,35 @@ sudo nixos-rebuild switch --flake .#orangepi5b-server
 sudo nixos-rebuild switch --flake .#orangepi5b-full
 ```
 
+## Grow the root partition
+
+The `.img` is sized to its contents (roughly 5 GiB), not to the SD card or
+eMMC. The configuration in `hosts/orangepi5b/common.nix` grows partition 2
+and the ext4 filesystem to the full device on boot:
+
+```nix
+boot.growPartition = true;
+fileSystems."/".autoResize = true;
+```
+
+Both steps run on every boot and are no-ops once the partition fills the disk.
+
+Older images used `sdImage.expandOnBoot`, whose one-shot
+`expand-root-partition.service` only ran while `/nix-path-registration`
+existed. If such an image is still at ~5 GiB after the first boot, grow it
+manually from the running system:
+
+```shell
+root=$(findmnt -no SOURCE /)
+disk=$(lsblk -npo PKNAME "$root")
+sudo nix shell nixpkgs#cloud-utils nixpkgs#e2fsprogs -c bash -c \
+  'growpart "$1" "${2##*[!0-9]}" || true; resize2fs "$2"' _ "$disk" "$root"
+df -h /
+```
+
+`growpart` resizes the partition online and `resize2fs` grows the mounted
+ext4, so no reboot is needed. Partition 1 (`BOOT`, 16 MiB) is left alone.
+
 ## U-Boot
 
 U-Boot is built from the upstream release pinned in

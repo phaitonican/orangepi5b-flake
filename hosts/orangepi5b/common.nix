@@ -116,6 +116,14 @@ in
         configurationLimit = 5;
       };
     };
+
+    # Grow the root partition to fill the eMMC/SD card on boot. sd-image.nix's
+    # own expand-root-partition service uses partprobe, which cannot re-read
+    # the partition table while the root partition is mounted, so it silently
+    # did nothing on this board. growpart uses a per-partition kernel ioctl
+    # instead and works on a live root; it is a no-op once the partition fills
+    # the disk.
+    growPartition = true;
   };
 
   hardware = {
@@ -189,8 +197,16 @@ in
   # SD/eMMC image
   # ---------------------------------------------------------------------------
 
+  # Let systemd grow the ext4 root filesystem after growpart has enlarged the
+  # partition (see boot.growPartition). Both steps are no-ops once grown.
+  fileSystems."/".autoResize = true;
+
   sdImage = {
     compressImage = false;
+
+    # boot.growPartition + fileSystems."/".autoResize replace the one-shot
+    # first-boot expansion, which silently did nothing on this board.
+    expandOnBoot = false;
 
     # U-Boot lives in the gap before the first partition. 32 MiB is plenty
     # for the ~10 MiB u-boot-rockchip.bin.
