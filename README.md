@@ -8,6 +8,8 @@ tools.
 
 ## Quick start
 
+Build an image on your `x86_64-linux` machine:
+
 ```shell
 # Minimal headless server
 nix build .#server --out-link result-server
@@ -16,19 +18,23 @@ nix build .#server --out-link result-server
 nix build .#full --out-link result-full
 ```
 
-Flash the resulting image (replace `/dev/sdX` with your card):
+Flash it to an SD card (replace `/dev/sdX` with your card — check it twice,
+this overwrites the whole device):
 
 ```shell
 sudo dd if=result-server/sd-image/nixos-image-sd-card-server-*.img \
   of=/dev/sdX bs=4M status=progress conv=fsync
 ```
 
-To install to the eMMC instead, use maskrom mode as described in
+Put the card in the board, connect Ethernet and/or the serial console, and
+power on. Log in as `nixos` with password `nixos`, then run `passwd`.
+
+To install to eMMC instead, build the image the same way and follow
 [Flash the eMMC (maskrom mode)](#flash-the-emmc-maskrom-mode).
 
-Boot the board, log in as `nixos` with password `nixos`, and run `passwd`.
-See [Build](#build), [Flash an SD card](#flash-an-sd-card) and
-[First boot](#first-boot) for details.
+More detail: [Images](#images) to choose a profile, [Build](#build) for the
+build outputs, [Flash an SD card](#flash-an-sd-card), and
+[First boot](#first-boot) for login and console details.
 
 ## Images
 
@@ -43,12 +49,195 @@ Both images share the board configuration in
 - `hosts/orangepi5b/server.nix`
 - `hosts/orangepi5b/full.nix`
 
+## Build
+
+```shell
+# Minimal server image
+nix build .#server --out-link result-server
+
+# Full GPU/NPU image
+nix build .#full --out-link result-full
+
+# U-Boot only (u-boot-rockchip.bin, i.e. idbloader + U-Boot FIT)
+nix build .#uboot
+```
+
+The images are written to:
+
+```text
+result-server/sd-image/nixos-image-sd-card-server-*.img
+result-full/sd-image/nixos-image-full-sd-card-*.img
+```
+
+On `x86_64-linux`, `nix build .#server`/`.#full` selects the cross-compiled
+image. On the board, the same attributes build the image natively. The first
+cross build compiles quite a few packages; later builds reuse the Nix store.
+The NixOS configurations themselves are always native, which is what
+`nixos-rebuild` uses on the board. Formatting and flashing tools are available
+in the dev shell:
+
+```shell
+nix develop
+```
+
+## Flash an SD card
+
+```shell
+sudo dd if=result-server/sd-image/nixos-image-sd-card-server-*.img \
+  of=/dev/sdX bs=4M status=progress conv=fsync
+```
+
+Use `result-full/...` instead for the full image. The U-Boot image is already
+written into the gap before the first partition by the flake, so you only need
+to write the `.img` file.
+
+## Flash the eMMC (maskrom mode)
+
+You need [`rkdeveloptool`](https://github.com/rockchip-linux/rkdeveloptool),
+which is included in the dev shell. Enter the dev shell from the flake root
+first, so the commands below are on `PATH`:
+
+```shell
+cd /path/to/orangepi5b-flake
+nix develop
+```
+
+1. Power off the board, connect the USB-C port to your PC, hold the maskrom
+   button, then apply power.
+2. Verify maskrom mode:
+
+   ```shell
+   rkdeveloptool ld
+   ```
+
+3. Build the RK3588 loader:
+
+   ```shell
+   git clone https://github.com/rockchip-linux/rkbin --depth 1
+   cd rkbin
+   ./tools/boot_merger RKBOOT/RK3588MINIALL.ini
+   cd ..
+   ```
+
+4. Upload the loader and write the chosen image:
+
+   ```shell
+   sudo rkdeveloptool db rkbin/rk3588_loader_*.bin
+   sudo rkdeveloptool ul rkbin/rk3588_loader_*.bin
+   sudo rkdeveloptool wl 0 result-full/sd-image/nixos-image-full-sd-card-*.img
+   sudo rkdeveloptool rd
+   ```
+
+## First boot
+
+Both images create one normal user, `nixos`, with the initial password
+`nixos` — similar to the NixOS installation media.
+
+- Server image: member of `wheel` and `networkmanager`.
+- Full image: member of `wheel`, `networkmanager`, `video`, `render` and
+  `audio`.
+
+Change the password with `passwd` after the first login. The stock images use
+the defaults from `flake.nix`:
+
+```nix
+defaultUsername = "nixos";
+defaultInitialPassword = "nixos";
+```
+
+Derivative flakes can pass `username`/`initialPassword` to `lib.mkSystem`, or
+set the `orangepi5b.username`/`orangepi5b.initialPassword` options. The generic
+image trusts no SSH keys by default; add your own key and set
+`services.openssh.settings.PasswordAuthentication = false` in
+`hosts/orangepi5b/common.nix` before exposing the board to a network.
+
+Serial console: `ttyS2` at `1500000` baud. An HDMI text console is also
+enabled.
+
+On the board, switch/update with the matching configuration:
+
+```shell
+sudo nixos-rebuild switch --flake .#orangepi5b-server
+# or
+sudo nixos-rebuild switch --flake .#orangepi5b-full
+```
+
+These configurations are built natively for `aarch64-linux`; the x86_64 cross
+setup only applies to the SD-card image builds and to the `*-cross`
+configurations described below.
+
+## Deploy over the network
+
+`nixos-rebuild` can build and activate the board from another machine over
+SSH, without logging in to the board.
+
+### Cross-build on x86_64 and push
+
+The `*-cross` configurations are the same systems as the image builds: they
+are cross-compiled on `x86_64-linux` and then copied to the board. This is the
+fastest option, because the x86_64 machine does the work.
+
+```shell
+nixos-rebuild switch --flake .#orangepi5b-full-cross \
+  --target-host root@orangepi5b
+```
+
+Use `.#orangepi5b-server-cross` for the server profile.
+
+This needs root SSH access to the board. Add a key for root in
+`hosts/orangepi5b/common.nix`, then switch once on the board to activate it:
+
+```nix
+users.users.root.openssh.authorizedKeys.keys = [
+  "ssh-ed25519 AAAA... you@example"
+];
+```
+
+To deploy as the unprivileged `nixos` user instead, the board's Nix daemon
+must trust that user (otherwise copying the new system fails with *lacks a
+signature by a trusted key*), and `nixos-rebuild` must elevate with `sudo` on
+the target. Add this to `hosts/orangepi5b/common.nix` and switch once on the
+board:
+
+```nix
+nix.settings.trusted-users = [ "@wheel" ];
+```
+
+```shell
+nixos-rebuild switch --flake .#orangepi5b-full-cross \
+  --target-host nixos@orangepi5b \
+  --sudo --ask-sudo-password
+```
+
+`--ask-sudo-password` prompts for the `nixos` user's password on the board.
+`--sudo`/`--ask-sudo-password` are the current `nixos-rebuild-ng` flags;
+older `nixos-rebuild` versions spell this `--use-remote-sudo`.
+
+### Build on the board
+
+Alternatively, let the board build its native configuration. This avoids the
+cross toolchain and the `trusted-users` requirement, but the board's CPU does
+the work (unchanged store paths are still reused):
+
+```shell
+nixos-rebuild switch --flake .#orangepi5b-full \
+  --target-host root@orangepi5b \
+  --build-host root@orangepi5b
+```
+
+Both methods accept SSH options via `NIX_SSHOPTS`, for example:
+
+```shell
+export NIX_SSHOPTS="-p 2222 -i ~/.ssh/orangepi5b"
+```
+
 ## Use in your own configuration
 
-This flake can be consumed as an input by a private or derivative flake. Use
-`lib.mkSystem` with the profile fragments in `lib.profiles` (or use the
-self-contained `nixosModules.server`/`nixosModules.full` directly) instead of
-copying `common.nix`, `server.nix` or `full.nix`:
+Everything above describes the stock images. This flake can also be consumed
+as an input by a private or derivative flake. Use `lib.mkSystem` with the
+profile fragments in `lib.profiles` (or use the self-contained
+`nixosModules.server`/`nixosModules.full` directly) instead of copying
+`common.nix`, `server.nix` or `full.nix`:
 
 ```nix
 {
@@ -261,201 +450,6 @@ Wi-Fi](#ssh-hangs-or-freezes-over-wi-fi)) are set explicitly.
 - The vendor RKNN-Toolkit2/librknnrt stack, which expects the vendor `rknpu`
   kernel driver rather than mainline `rocket`.
 
-## Layout
-
-| File | Purpose |
-| --- | --- |
-| `flake.nix` | Inputs, native and cross configurations, `lib.profiles`/`lib.mkSystem`, `nixosModules`, dev shell |
-| `hosts/orangepi5b/options.nix` | `orangepi5b.username`, `orangepi5b.initialPassword` and `orangepi5b.uboot` options |
-| `hosts/orangepi5b/common.nix` | Shared kernel, boot, storage, users, services, SD-image assembly |
-| `hosts/orangepi5b/server.nix` | Minimal server profile |
-| `hosts/orangepi5b/full.nix` | GPU/NPU/media profile |
-| `hosts/orangepi5b/u-boot.nix` | U-Boot built from upstream, with the 5B defconfig |
-| `hosts/orangepi5b/u-boot/defconfig` | U-Boot config for the 5B (upstream has none) |
-| `hosts/orangepi5b/patches/` | Kernel patches applied via `boot.kernelPatches` (5B Wi-Fi/Bluetooth DT) |
-
-## Build
-
-```shell
-# Minimal server image
-nix build .#server --out-link result-server
-
-# Full GPU/NPU image
-nix build .#full --out-link result-full
-
-# U-Boot only (u-boot-rockchip.bin, i.e. idbloader + U-Boot FIT)
-nix build .#uboot
-```
-
-The images are written to:
-
-```text
-result-server/sd-image/nixos-image-sd-card-server-*.img
-result-full/sd-image/nixos-image-full-sd-card-*.img
-```
-
-On `x86_64-linux`, `nix build .#server`/`.#full` selects the cross-compiled
-image. On the board, the same attributes build the image natively. The first
-cross build compiles quite a few packages; later builds reuse the Nix store.
-The NixOS configurations themselves are always native, which is what
-`nixos-rebuild` uses on the board. Formatting and flashing tools are available
-in the dev shell:
-
-```shell
-nix develop
-```
-
-## Flash an SD card
-
-```shell
-sudo dd if=result-server/sd-image/nixos-image-sd-card-server-*.img \
-  of=/dev/sdX bs=4M status=progress conv=fsync
-```
-
-Use `result-full/...` instead for the full image. The U-Boot image is already
-written into the gap before the first partition by the flake, so you only need
-to write the `.img` file.
-
-## Flash the eMMC (maskrom mode)
-
-You need [`rkdeveloptool`](https://github.com/rockchip-linux/rkdeveloptool),
-which is included in the dev shell. Enter the dev shell from the flake root
-first, so the commands below are on `PATH`:
-
-```shell
-cd /path/to/orangepi5b-flake
-nix develop
-```
-
-1. Power off the board, connect the USB-C port to your PC, hold the maskrom
-   button, then apply power.
-2. Verify maskrom mode:
-
-   ```shell
-   rkdeveloptool ld
-   ```
-
-3. Build the RK3588 loader:
-
-   ```shell
-   git clone https://github.com/rockchip-linux/rkbin --depth 1
-   cd rkbin
-   ./tools/boot_merger RKBOOT/RK3588MINIALL.ini
-   cd ..
-   ```
-
-4. Upload the loader and write the chosen image:
-
-   ```shell
-   sudo rkdeveloptool db rkbin/rk3588_loader_*.bin
-   sudo rkdeveloptool ul rkbin/rk3588_loader_*.bin
-   sudo rkdeveloptool wl 0 result-full/sd-image/nixos-image-full-sd-card-*.img
-   sudo rkdeveloptool rd
-   ```
-
-## First boot
-
-Both images create one normal user, `nixos`, with the initial password
-`nixos` — similar to the NixOS installation media.
-
-- Server image: member of `wheel` and `networkmanager`.
-- Full image: member of `wheel`, `networkmanager`, `video`, `render` and
-  `audio`.
-
-Change the password with `passwd` after the first login. The stock images use
-the defaults from `flake.nix`:
-
-```nix
-defaultUsername = "nixos";
-defaultInitialPassword = "nixos";
-```
-
-Derivative flakes can pass `username`/`initialPassword` to `lib.mkSystem`, or
-set the `orangepi5b.username`/`orangepi5b.initialPassword` options. The generic image
-trusts no SSH keys by default; add your own key and set
-`services.openssh.settings.PasswordAuthentication = false` in
-`hosts/orangepi5b/common.nix` before exposing the board to a network.
-
-Serial console: `ttyS2` at `1500000` baud. An HDMI text console is also
-enabled.
-
-On the board, switch/update with the matching configuration:
-
-```shell
-sudo nixos-rebuild switch --flake .#orangepi5b-server
-# or
-sudo nixos-rebuild switch --flake .#orangepi5b-full
-```
-
-These configurations are built natively for `aarch64-linux`; the x86_64 cross
-setup only applies to the SD-card image builds and to the `*-cross`
-configurations described below.
-
-## Deploy over the network
-
-`nixos-rebuild` can build and activate the board from another machine over
-SSH, without logging in to the board.
-
-### Cross-build on x86_64 and push
-
-The `*-cross` configurations are the same systems as the image builds: they
-are cross-compiled on `x86_64-linux` and then copied to the board. This is the
-fastest option, because the x86_64 machine does the work.
-
-```shell
-nixos-rebuild switch --flake .#orangepi5b-full-cross \
-  --target-host root@orangepi5b
-```
-
-Use `.#orangepi5b-server-cross` for the server profile.
-
-This needs root SSH access to the board. Add a key for root in
-`hosts/orangepi5b/common.nix`, then switch once on the board to activate it:
-
-```nix
-users.users.root.openssh.authorizedKeys.keys = [
-  "ssh-ed25519 AAAA... you@example"
-];
-```
-
-To deploy as the unprivileged `nixos` user instead, the board's Nix daemon
-must trust that user (otherwise copying the new system fails with *lacks a
-signature by a trusted key*), and `nixos-rebuild` must elevate with `sudo` on
-the target. Add this to `hosts/orangepi5b/common.nix` and switch once on the
-board:
-
-```nix
-nix.settings.trusted-users = [ "@wheel" ];
-```
-
-```shell
-nixos-rebuild switch --flake .#orangepi5b-full-cross \
-  --target-host nixos@orangepi5b \
-  --sudo --ask-sudo-password
-```
-
-`--ask-sudo-password` prompts for the `nixos` user's password on the board.
-`--sudo`/`--ask-sudo-password` are the current `nixos-rebuild-ng` flags;
-older `nixos-rebuild` versions spell this `--use-remote-sudo`.
-
-### Build on the board
-
-Alternatively, let the board build its native configuration. This avoids the
-cross toolchain and the `trusted-users` requirement, but the board's CPU does
-the work (unchanged store paths are still reused):
-
-```shell
-nixos-rebuild switch --flake .#orangepi5b-full \
-  --target-host root@orangepi5b \
-  --build-host root@orangepi5b
-```
-
-Both methods accept SSH options via `NIX_SSHOPTS`, for example:
-
-```shell
-export NIX_SSHOPTS="-p 2222 -i ~/.ssh/orangepi5b"
-```
-
 ## SSH hangs or freezes over Wi-Fi
 
 Symptom: `ssh` to the board hangs at `Connecting to ...` and times out, or an
@@ -552,6 +546,19 @@ To update U-Boot, change `version` (and `hash`) in
 hash if it is stale. If the new release needs different options, regenerate
 the defconfig with `make savedefconfig` in a U-Boot tree and copy the result
 over `hosts/orangepi5b/u-boot/defconfig`.
+
+## Layout
+
+| File | Purpose |
+| --- | --- |
+| `flake.nix` | Inputs, native and cross configurations, `lib.profiles`/`lib.mkSystem`, `nixosModules`, dev shell |
+| `hosts/orangepi5b/options.nix` | `orangepi5b.username`, `orangepi5b.initialPassword` and `orangepi5b.uboot` options |
+| `hosts/orangepi5b/common.nix` | Shared kernel, boot, storage, users, services, SD-image assembly |
+| `hosts/orangepi5b/server.nix` | Minimal server profile |
+| `hosts/orangepi5b/full.nix` | GPU/NPU/media profile |
+| `hosts/orangepi5b/u-boot.nix` | U-Boot built from upstream, with the 5B defconfig |
+| `hosts/orangepi5b/u-boot/defconfig` | U-Boot config for the 5B (upstream has none) |
+| `hosts/orangepi5b/patches/` | Kernel patches applied via `boot.kernelPatches` (5B Wi-Fi/Bluetooth DT) |
 
 ## License
 
