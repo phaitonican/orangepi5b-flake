@@ -45,9 +45,10 @@ Both images share the board configuration in
 
 ## Use in your own configuration
 
-This flake can be consumed as an input by a private or derivative flake. The
-recommended pattern is to extend one of the exported configurations with your
-own modules instead of copying `common.nix`, `server.nix` or `full.nix`:
+This flake can be consumed as an input by a private or derivative flake. Use
+`lib.mkSystem` with one of the exported `nixosModules` and pass your own
+modules/specialArgs instead of copying `common.nix`, `server.nix` or
+`full.nix`:
 
 ```nix
 {
@@ -59,18 +60,29 @@ own modules instead of copying `common.nix`, `server.nix` or `full.nix`:
   outputs =
     { orangepi5b-flake, ... }:
     let
-      extend =
-        base:
-        base.extendModules {
-          modules = [ ./hosts/my-board.nix ];
-          specialArgs = {
+      mkBoard =
+        {
+          profile,
+          buildSystem ? orangepi5b-flake.lib.hostSystem,
+          extraModules ? [ ],
+        }:
+        orangepi5b-flake.lib.mkSystem {
+          inherit profile buildSystem extraModules;
+          extraSpecialArgs = {
             username = "admin";
             initialPassword = "change-me";
           };
         };
 
-      board = extend orangepi5b-flake.nixosConfigurations.orangepi5b-server;
-      boardCross = extend orangepi5b-flake.nixosConfigurations.orangepi5b-server-cross;
+      board = mkBoard {
+        profile = orangepi5b-flake.nixosModules.server;
+        extraModules = [ ./hosts/my-board.nix ];
+      };
+      boardCross = mkBoard {
+        profile = orangepi5b-flake.nixosModules.server;
+        buildSystem = orangepi5b-flake.lib.imageBuildSystem;
+        extraModules = [ ./hosts/my-board.nix ];
+      };
     in
     {
       nixosConfigurations = {
@@ -83,9 +95,11 @@ own modules instead of copying `common.nix`, `server.nix` or `full.nix`:
 }
 ```
 
-`extendModules` evaluates the public module set again with your extra module, so
-the kernel, Wi-Fi/Bluetooth patch, U-Boot, SD-image assembly and common services
-stay in sync automatically. Put your board-specific overrides in
+`lib.mkSystem` includes `common.nix`, the platform settings and the matching
+U-Boot build. It appends `extraModules` after the profile and merges
+`extraSpecialArgs` into the default `username`/`initialPassword` arguments, so
+the kernel, Wi-Fi/Bluetooth patch, SD-image assembly and common services stay
+in sync automatically. Put your board-specific overrides in
 `hosts/my-board.nix`:
 
 ```nix
@@ -121,17 +135,20 @@ sudo nixos-rebuild switch --flake .#my-board
 nixos-rebuild switch --flake .#my-board-cross --target-host root@my-board
 ```
 
-Start from `orangepi5b-server`/`orangepi5b-server-cross` for the minimal image
-or `orangepi5b-full`/`orangepi5b-full-cross` for the GPU/NPU/media image. Use
-`specialArgs` for values your own modules consume, for example a public domain:
+Start from `nixosModules.server` for the minimal image or `nixosModules.full`
+for the GPU/NPU/media image. Use `extraSpecialArgs` for values your own modules
+consume, for example a public domain:
 
 ```nix
-specialArgs = {
+extraSpecialArgs = {
   username = "admin";
   initialPassword = "change-me";
   publicDomain = "my-board.example.net";
 };
 ```
+
+The prebuilt `orangepi5b-server`/`orangepi5b-full` configurations and the
+`packages` outputs remain available if you only want to build the stock images.
 
 ## Features
 

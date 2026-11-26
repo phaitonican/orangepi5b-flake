@@ -44,6 +44,8 @@
         {
           profile,
           buildSystem ? hostSystem,
+          extraModules ? [ ],
+          extraSpecialArgs ? { },
         }:
         nixpkgs.lib.nixosSystem {
           # Must be null because the platform is set explicitly below.
@@ -52,7 +54,8 @@
           specialArgs = {
             inherit username initialPassword;
             uboot = mkUboot buildSystem;
-          };
+          }
+          // extraSpecialArgs;
 
           modules = [
             {
@@ -61,7 +64,8 @@
             }
             ./hosts/orangepi5b/common.nix
             profile
-          ];
+          ]
+          ++ extraModules;
         };
 
       # These are what `nixos-rebuild switch --flake .#orangepi5b-*` uses on
@@ -95,6 +99,26 @@
         };
     in
     {
+      # Reusable building blocks for derivative flakes: add this flake as an
+      # input, pick a profile from `nixosModules` and call `lib.mkSystem` with
+      # your own modules/specialArgs. `lib.mkSystem` already includes
+      # common.nix, the platform settings and the matching U-Boot build.
+      lib = {
+        inherit
+          hostSystem
+          imageBuildSystem
+          mkUboot
+          mkSystem
+          ;
+      };
+
+      nixosModules = {
+        default = ./hosts/orangepi5b/common.nix;
+        common = ./hosts/orangepi5b/common.nix;
+        server = ./hosts/orangepi5b/server.nix;
+        full = ./hosts/orangepi5b/full.nix;
+      };
+
       nixosConfigurations = {
         # Native configurations for `nixos-rebuild switch` on the board.
         orangepi5b-server = server;
