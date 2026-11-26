@@ -43,6 +43,96 @@ Both images share the board configuration in
 - `hosts/orangepi5b/server.nix`
 - `hosts/orangepi5b/full.nix`
 
+## Use in your own configuration
+
+This flake can be consumed as an input by a private or derivative flake. The
+recommended pattern is to extend one of the exported configurations with your
+own modules instead of copying `common.nix`, `server.nix` or `full.nix`:
+
+```nix
+{
+  inputs = {
+    orangepi5b-flake.url = "github:phaitonican/orangepi5b-flake";
+    nixpkgs.follows = "orangepi5b-flake/nixpkgs";
+  };
+
+  outputs =
+    { orangepi5b-flake, ... }:
+    let
+      extend =
+        base:
+        base.extendModules {
+          modules = [ ./hosts/my-board.nix ];
+          specialArgs = {
+            username = "admin";
+            initialPassword = "change-me";
+          };
+        };
+
+      board = extend orangepi5b-flake.nixosConfigurations.orangepi5b-server;
+      boardCross = extend orangepi5b-flake.nixosConfigurations.orangepi5b-server-cross;
+    in
+    {
+      nixosConfigurations = {
+        my-board = board;
+        my-board-cross = boardCross;
+      };
+
+      packages.x86_64-linux.image = boardCross.config.system.build.sdImage;
+    };
+}
+```
+
+`extendModules` evaluates the public module set again with your extra module, so
+the kernel, Wi-Fi/Bluetooth patch, U-Boot, SD-image assembly and common services
+stay in sync automatically. Put your board-specific overrides in
+`hosts/my-board.nix`:
+
+```nix
+{ pkgs, username, ... }:
+{
+  networking.hostName = "my-board";
+
+  users.users.${username}.openssh.authorizedKeys.keys = [
+    "ssh-ed25519 AAAA... you@example"
+  ];
+  users.users.root.openssh.authorizedKeys.keys = [
+    "ssh-ed25519 AAAA... you@example"
+  ];
+
+  services.openssh.settings.PasswordAuthentication = false;
+  environment.systemPackages = [ pkgs.htop ];
+}
+```
+
+The public configurations trust no SSH keys by default, so add your own as
+above. Change the initial password on first login.
+
+Build or switch with your own names:
+
+```shell
+# Cross-compiled SD-card image on x86_64
+nix build .#image --out-link result
+
+# Native switch on the board
+sudo nixos-rebuild switch --flake .#my-board
+
+# Cross-build on x86_64 and push over SSH
+nixos-rebuild switch --flake .#my-board-cross --target-host root@my-board
+```
+
+Start from `orangepi5b-server`/`orangepi5b-server-cross` for the minimal image
+or `orangepi5b-full`/`orangepi5b-full-cross` for the GPU/NPU/media image. Use
+`specialArgs` for values your own modules consume, for example a public domain:
+
+```nix
+specialArgs = {
+  username = "admin";
+  initialPassword = "change-me";
+  publicDomain = "my-board.example.net";
+};
+```
+
 ## Features
 
 ### Board support (both images)
