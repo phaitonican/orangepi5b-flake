@@ -251,7 +251,8 @@ username = "nixos";
 initialPassword = "nixos";
 ```
 
-Change them there and rebuild to use your own account. Add an SSH key and set
+Change them there and rebuild to use your own account. The generic image
+trusts no SSH keys by default; add your own key and set
 `services.openssh.settings.PasswordAuthentication = false` in
 `hosts/orangepi5b/common.nix` before exposing the board to a network.
 
@@ -431,3 +432,7 @@ To update U-Boot, change `version` (and `hash`) in
 hash if it is stale. If the new release needs different options, regenerate
 the defconfig with `make savedefconfig` in a U-Boot tree and copy the result
 over `hosts/orangepi5b/u-boot/defconfig`.
+
+## License
+
+MIT, see [LICENSE](LICENSE).

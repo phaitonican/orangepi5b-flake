@@ -1,0 +1,24 @@
+name: Check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  flake:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v32
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Check formatting
+        run: nix develop --command nixfmt -c $(git ls-files '*.nix')
+
+      - name: Evaluate flake
+        run: nix flake check --no-build
