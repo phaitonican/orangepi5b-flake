@@ -7,7 +7,7 @@
   # Minimal server profile:
   # - no Mesa/GPU stack
   # - no GPU/NPU/media kernel modules
-  # - no extra firmware
+  # - no GPU/NPU firmware beyond the shared linux-firmware/BCM43752 files
   # - no desktop, audio server or monitoring tools
   #
   # The common board configuration still gives you serial + HDMI console,

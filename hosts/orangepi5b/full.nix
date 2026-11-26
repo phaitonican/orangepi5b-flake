@@ -1,21 +1,29 @@
 {
+  config,
   pkgs,
-  username,
   ...
 }:
 
 let
   # rkmon's upstream ldflags force a static external link, which fails when
   # cross-compiling because the static aarch64 libc/pthread are not available.
-  # It is pure Go, so use the internal linker instead.
+  # It is pure Go, so use the internal linker instead and set the version
+  # metadata explicitly rather than filtering nixpkgs' flag list.
   rkmon = pkgs.rkmon.overrideAttrs (old: {
     env = (old.env or { }) // {
       CGO_ENABLED = "0";
     };
-    ldflags = builtins.filter (x: x != "-extldflags" && x != "-static") old.ldflags;
+    ldflags = [
+      "-s"
+      "-w"
+      "-X=main.Version=${old.version or "unknown"}"
+      "-X=main.GitSHA=${old.src.rev or ""}"
+    ];
   });
 in
 {
+  imports = [ ./options.nix ];
+
   # Full media/NPU profile:
   # - HDMI 2.1 + Mali-G610 (Panthor) GPU
   # - mainline 3-core NPU (rocket) + Mesa rocket/Teflon userspace
@@ -53,7 +61,7 @@ in
     };
   };
 
-  users.users.${username}.extraGroups = [
+  users.users.${config.orangepi5b.username}.extraGroups = [
     "video" # /dev/dri/card* (KMS/HDMI console)
     "render" # /dev/dri/renderD* (Panthor GPU)
     "audio" # HDMI/ES8388 audio devices

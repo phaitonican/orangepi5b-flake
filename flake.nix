@@ -11,11 +11,13 @@
       nixpkgs,
     }:
     let
+      lib = nixpkgs.lib;
+
       # Generic defaults for a fresh installation: one normal user called
       # `nixos` with the password `nixos`. Change both values here (and change
       # the password on first login) when you make the image your own.
-      username = "nixos";
-      initialPassword = "nixos";
+      defaultUsername = "nixos";
+      defaultInitialPassword = "nixos";
 
       # The board itself. NixOS configurations are built natively for this
       # platform, so `nixos-rebuild switch` on the board does not need any
@@ -40,10 +42,26 @@
             if buildSystem == hostSystem then buildPkgs else buildPkgs.pkgsCross.aarch64-multiplatform;
         };
 
+      # The board modules, separated into fragments (for `lib.mkSystem`) and
+      # complete modules (see `nixosModules` below). Keeping the common part
+      # in one place is what lets the profiles stay small.
+      profileModules = {
+        common = ./hosts/orangepi5b/common.nix;
+        server = ./hosts/orangepi5b/server.nix;
+        full = ./hosts/orangepi5b/full.nix;
+      };
+
+      variants = {
+        server = profileModules.server;
+        full = profileModules.full;
+      };
+
       mkSystem =
         {
           profile,
           buildSystem ? hostSystem,
+          username ? defaultUsername,
+          initialPassword ? defaultInitialPassword,
           extraModules ? [ ],
           extraSpecialArgs ? { },
         }:
@@ -51,6 +69,8 @@
           # Must be null because the platform is set explicitly below.
           system = null;
 
+          # Keep the old special arguments available for derivative modules,
+          # while the board modules themselves use the orangepi5b.* options.
           specialArgs = {
             inherit username initialPassword;
             uboot = mkUboot buildSystem;
@@ -61,27 +81,36 @@
             {
               nixpkgs.buildPlatform = buildSystem;
               nixpkgs.hostPlatform = hostSystem;
+
+              # These are board options, so they can also be overridden by an
+              # `extraModules` entry. The U-Boot package must match the build
+              # platform, which is why it is computed here.
+              orangepi5b.uboot = lib.mkDefault (mkUboot buildSystem);
+              orangepi5b.username = lib.mkDefault username;
+              orangepi5b.initialPassword = lib.mkDefault initialPassword;
             }
-            ./hosts/orangepi5b/common.nix
+            profileModules.common
             profile
           ]
           ++ extraModules;
         };
 
-      # These are what `nixos-rebuild switch --flake .#orangepi5b-*` uses on
-      # the board: buildPlatform == hostPlatform, i.e. a native build.
-      server = mkSystem { profile = ./hosts/orangepi5b/server.nix; };
-      full = mkSystem { profile = ./hosts/orangepi5b/full.nix; };
+      mkConfigs =
+        buildSystem:
+        lib.mapAttrs (
+          _name: profile:
+          mkSystem {
+            inherit profile buildSystem;
+          }
+        ) variants;
 
-      # The same systems, cross-compiled for producing the SD-card images on
-      # an x86_64 machine.
-      imageServer = mkSystem {
-        profile = ./hosts/orangepi5b/server.nix;
-        buildSystem = imageBuildSystem;
-      };
-      imageFull = mkSystem {
-        profile = ./hosts/orangepi5b/full.nix;
-        buildSystem = imageBuildSystem;
+      nativeConfigs = mkConfigs hostSystem;
+      crossConfigs = mkConfigs imageBuildSystem;
+
+      # Complete modules for direct `imports = [ ... ]` use. They include
+      # common.nix, so they do not need `lib.mkSystem` or special arguments.
+      mkBoardModule = profiles: {
+        imports = [ profileModules.common ] ++ profiles;
       };
 
       devShells =
@@ -99,10 +128,14 @@
         };
     in
     {
-      # Reusable building blocks for derivative flakes: add this flake as an
-      # input, pick a profile from `nixosModules` and call `lib.mkSystem` with
-      # your own modules/specialArgs. `lib.mkSystem` already includes
-      # common.nix, the platform settings and the matching U-Boot build.
+      # Reusable building blocks for derivative flakes. Use the fragments in
+      # `lib.profiles` with `lib.mkSystem` when you need native/cross variants:
+      #
+      #   profile = orangepi5b-flake.lib.profiles.server;
+      #   board = orangepi5b-flake.lib.mkSystem { inherit profile; };
+      #
+      # `lib.mkSystem` includes common.nix, the platform settings and the
+      # matching U-Boot build.
       lib = {
         inherit
           hostSystem
@@ -110,39 +143,41 @@
           mkUboot
           mkSystem
           ;
+        profiles = profileModules;
       };
 
+      # Self-contained modules, for example:
+      #
+      #   nixosConfigurations.my-board = nixpkgs.lib.nixosSystem {
+      #     modules = [
+      #       { nixpkgs.hostPlatform = "aarch64-linux"; }
+      #       orangepi5b-flake.nixosModules.server
+      #     ];
+      #   };
+      #
+      # They default `orangepi5b.uboot` to a package built for the current
+      # build platform. Use `lib.mkSystem` if you also need the cross variant.
       nixosModules = {
-        default = ./hosts/orangepi5b/common.nix;
-        common = ./hosts/orangepi5b/common.nix;
-        server = ./hosts/orangepi5b/server.nix;
-        full = ./hosts/orangepi5b/full.nix;
+        default = mkBoardModule [ profileModules.server ];
+        common = profileModules.common;
+        server = mkBoardModule [ profileModules.server ];
+        full = mkBoardModule [ profileModules.full ];
       };
 
-      nixosConfigurations = {
-        # Native configurations for `nixos-rebuild switch` on the board.
-        orangepi5b-server = server;
-        orangepi5b-full = full;
-
-        # Cross-compiled variants for deploying from an x86_64 machine over
-        # SSH, e.g. `nixos-rebuild switch --flake .#orangepi5b-full-cross
-        # --target-host ...` (see README).
-        orangepi5b-server-cross = imageServer;
-        orangepi5b-full-cross = imageFull;
-      };
+      nixosConfigurations =
+        lib.mapAttrs' (name: config: lib.nameValuePair "orangepi5b-${name}" config) nativeConfigs
+        // lib.mapAttrs' (name: config: lib.nameValuePair "orangepi5b-${name}-cross" config) crossConfigs;
 
       packages = {
         # Cross-compiled images, built on an x86_64 machine.
-        ${imageBuildSystem} = {
-          server = imageServer.config.system.build.sdImage;
-          full = imageFull.config.system.build.sdImage;
-          uboot = mkUboot imageBuildSystem;
-        };
+        ${imageBuildSystem} =
+          lib.mapAttrs (_name: config: config.config.system.build.sdImage) crossConfigs
+          // {
+            uboot = mkUboot imageBuildSystem;
+          };
 
         # Building an image directly on the board also works, natively.
-        ${hostSystem} = {
-          server = server.config.system.build.sdImage;
-          full = full.config.system.build.sdImage;
+        ${hostSystem} = lib.mapAttrs (_name: config: config.config.system.build.sdImage) nativeConfigs // {
           uboot = mkUboot hostSystem;
         };
       };

@@ -3,9 +3,6 @@
   lib,
   modulesPath,
   pkgs,
-  uboot,
-  username,
-  initialPassword,
   ...
 }:
 
@@ -14,44 +11,36 @@ let
   # u-boot-rockchip.bin contains the idbloader and the U-Boot FIT and is
   # written at sector 64 (32 KiB), which is why the first partition starts at
   # 32 MiB.
-  u-boot = "${uboot}/u-boot-rockchip.bin";
+  u-boot = "${config.orangepi5b.uboot}/u-boot-rockchip.bin";
 
   # BCM43752/AP6275P firmware. linux-firmware still does not ship these, so
   # take the vendor files pinned to a specific orangepi-xunlong/firmware
   # revision. This provides the missing brcmfmac43752-pcie.* and the
   # BCM4362A2 Bluetooth patch file.
-  brcm43752Firmware = pkgs.runCommand "brcmfmac43752-firmware" { } ''
-    install -Dm644 ${
-      pkgs.fetchurl {
-        url = "https://raw.githubusercontent.com/orangepi-xunlong/firmware/dc163b0ed2e0272d9ee31977a0e0a04884f0ae61/brcm/brcmfmac43752-pcie.bin";
-        hash = "sha256-ai2+AeciId77qRpS4Vh2jZc6PIXKLYgckkN541rTayM=";
-      }
-    } $out/lib/firmware/brcm/brcmfmac43752-pcie.bin
+  firmwareRevision = "dc163b0ed2e0272d9ee31977a0e0a04884f0ae61";
+  firmwareFiles = {
+    "brcmfmac43752-pcie.bin" = "sha256-ai2+AeciId77qRpS4Vh2jZc6PIXKLYgckkN541rTayM=";
+    "brcmfmac43752-pcie.txt" = "sha256-tHgPe4alaA2+SWgV2+B6oiAQcB3i2MYFcLgnSkLbIVs=";
+    "brcmfmac43752-pcie.clm_blob" = "sha256-2BuorcizvApViRRrMbwxgSJpPYoRalAo0/6CZVbFqSo=";
+    "BCM4362A2.hcd" = "sha256-GJAaW+8dQYtolektCvrjYjT0FgsjdGXfyj116YROk+8=";
+  };
 
-    install -Dm644 ${
-      pkgs.fetchurl {
-        url = "https://raw.githubusercontent.com/orangepi-xunlong/firmware/dc163b0ed2e0272d9ee31977a0e0a04884f0ae61/brcm/brcmfmac43752-pcie.txt";
-        hash = "sha256-tHgPe4alaA2+SWgV2+B6oiAQcB3i2MYFcLgnSkLbIVs=";
-      }
-    } $out/lib/firmware/brcm/brcmfmac43752-pcie.txt
-
-    install -Dm644 ${
-      pkgs.fetchurl {
-        url = "https://raw.githubusercontent.com/orangepi-xunlong/firmware/dc163b0ed2e0272d9ee31977a0e0a04884f0ae61/brcm/brcmfmac43752-pcie.clm_blob";
-        hash = "sha256-2BuorcizvApViRRrMbwxgSJpPYoRalAo0/6CZVbFqSo=";
-      }
-    } $out/lib/firmware/brcm/brcmfmac43752-pcie.clm_blob
-
-    install -Dm644 ${
-      pkgs.fetchurl {
-        url = "https://raw.githubusercontent.com/orangepi-xunlong/firmware/dc163b0ed2e0272d9ee31977a0e0a04884f0ae61/brcm/BCM4362A2.hcd";
-        hash = "sha256-GJAaW+8dQYtolektCvrjYjT0FgsjdGXfyj116YROk+8=";
-      }
-    } $out/lib/firmware/brcm/BCM4362A2.hcd
-  '';
+  brcm43752Firmware = pkgs.runCommand "brcmfmac43752-firmware" { } (
+    lib.concatStrings (
+      lib.mapAttrsToList (name: hash: ''
+        install -Dm644 ${
+          pkgs.fetchurl {
+            url = "https://raw.githubusercontent.com/orangepi-xunlong/firmware/${firmwareRevision}/brcm/${name}";
+            inherit hash;
+          }
+        } $out/lib/firmware/brcm/${name}
+      '') firmwareFiles
+    )
+  );
 in
 {
   imports = [
+    ./options.nix
     "${modulesPath}/installer/sd-card/sd-image.nix"
   ];
 
@@ -187,13 +176,14 @@ in
   # ---------------------------------------------------------------------------
 
   # A single generic user, like the `nixos` user on the installation media.
-  # Change `username` and `initialPassword` in flake.nix, and change the
-  # password after the first login.
+  # Change `orangepi5b.username` and `orangepi5b.initialPassword` (or the
+  # corresponding `lib.mkSystem` arguments), and change the password after the
+  # first login.
   #
   # No SSH keys are trusted by default. Add your own public key in a
   # derivative of this flake, for example:
   #
-  #   users.users.${username}.openssh.authorizedKeys.keys = [
+  #   users.users.${config.orangepi5b.username}.openssh.authorizedKeys.keys = [
   #     "ssh-ed25519 AAAA... you@example"
   #   ];
   #   users.users.root.openssh.authorizedKeys.keys = [
@@ -204,10 +194,10 @@ in
   # "Deploy over the network" in README.md). Set
   # `services.openssh.settings.PasswordAuthentication = false` once key login
   # works.
-  users.users.${username} = {
+  users.users.${config.orangepi5b.username} = {
     isNormalUser = true;
     description = "NixOS User";
-    initialPassword = initialPassword;
+    initialPassword = config.orangepi5b.initialPassword;
     extraGroups = [
       "wheel"
       "networkmanager"

@@ -1,0 +1,33 @@
+name: Image
+
+# The regular Check workflow only evaluates the flake and builds U-Boot. A
+# full image build is where a stale `linuxPackages_latest` kernel patch or a
+# broken cross-compilation shows up, so run it on a schedule (and on demand).
+on:
+  schedule:
+    - cron: "0 4 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: image-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@382a9ed9481c7c1f94f68b72ef105b3417c73877 # v32
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Build server image
+        run: nix build .#server --no-link

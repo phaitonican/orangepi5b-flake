@@ -46,9 +46,9 @@ Both images share the board configuration in
 ## Use in your own configuration
 
 This flake can be consumed as an input by a private or derivative flake. Use
-`lib.mkSystem` with one of the exported `nixosModules` and pass your own
-modules/specialArgs instead of copying `common.nix`, `server.nix` or
-`full.nix`:
+`lib.mkSystem` with the profile fragments in `lib.profiles` (or use the
+self-contained `nixosModules.server`/`nixosModules.full` directly) instead of
+copying `common.nix`, `server.nix` or `full.nix`:
 
 ```nix
 {
@@ -64,22 +64,20 @@ modules/specialArgs instead of copying `common.nix`, `server.nix` or
         {
           profile,
           buildSystem ? orangepi5b-flake.lib.hostSystem,
+          username ? "admin",
+          initialPassword ? "change-me",
           extraModules ? [ ],
         }:
         orangepi5b-flake.lib.mkSystem {
-          inherit profile buildSystem extraModules;
-          extraSpecialArgs = {
-            username = "admin";
-            initialPassword = "change-me";
-          };
+          inherit profile buildSystem username initialPassword extraModules;
         };
 
       board = mkBoard {
-        profile = orangepi5b-flake.nixosModules.server;
+        profile = orangepi5b-flake.lib.profiles.server;
         extraModules = [ ./hosts/my-board.nix ];
       };
       boardCross = mkBoard {
-        profile = orangepi5b-flake.nixosModules.server;
+        profile = orangepi5b-flake.lib.profiles.server;
         buildSystem = orangepi5b-flake.lib.imageBuildSystem;
         extraModules = [ ./hosts/my-board.nix ];
       };
@@ -96,18 +94,19 @@ modules/specialArgs instead of copying `common.nix`, `server.nix` or
 ```
 
 `lib.mkSystem` includes `common.nix`, the platform settings and the matching
-U-Boot build. It appends `extraModules` after the profile and merges
-`extraSpecialArgs` into the default `username`/`initialPassword` arguments, so
-the kernel, Wi-Fi/Bluetooth patch, SD-image assembly and common services stay
-in sync automatically. Put your board-specific overrides in
+U-Boot build. It appends `extraModules` after the profile, so the kernel,
+Wi-Fi/Bluetooth patch, SD-image assembly and common services stay in sync
+automatically. `username` and `initialPassword` are board options
+(`orangepi5b.username`/`orangepi5b.initialPassword`), so they can also be set
+from `extraModules`. Put your board-specific overrides in
 `hosts/my-board.nix`:
 
 ```nix
-{ pkgs, username, ... }:
+{ config, pkgs, ... }:
 {
   networking.hostName = "my-board";
 
-  users.users.${username}.openssh.authorizedKeys.keys = [
+  users.users.${config.orangepi5b.username}.openssh.authorizedKeys.keys = [
     "ssh-ed25519 AAAA... you@example"
   ];
   users.users.root.openssh.authorizedKeys.keys = [
@@ -135,14 +134,25 @@ sudo nixos-rebuild switch --flake .#my-board
 nixos-rebuild switch --flake .#my-board-cross --target-host root@my-board
 ```
 
-Start from `nixosModules.server` for the minimal image or `nixosModules.full`
-for the GPU/NPU/media image. Use `extraSpecialArgs` for values your own modules
-consume, for example a public domain:
+Start from `lib.profiles.server` for the minimal image or `lib.profiles.full`
+for the GPU/NPU/media image. If you only need a native configuration, the
+self-contained `nixosModules.server`/`nixosModules.full` can be used directly:
+
+```nix
+nixosConfigurations.my-board = nixpkgs.lib.nixosSystem {
+  modules = [
+    { nixpkgs.hostPlatform = "aarch64-linux"; }
+    orangepi5b-flake.nixosModules.server
+    ./hosts/my-board.nix
+  ];
+};
+```
+
+Use `extraSpecialArgs` for values your own modules consume, for example a
+public domain:
 
 ```nix
 extraSpecialArgs = {
-  username = "admin";
-  initialPassword = "change-me";
   publicDomain = "my-board.example.net";
 };
 ```
@@ -241,8 +251,9 @@ but disables:
 Otherwise the configuration stays close to a stock NixOS installation:
 documentation, default packages, journald limits, swap and Nix GC are left at
 their NixOS defaults. Only board support (kernel, initramfs, device tree,
-firmware and U-Boot), the `nixos` user and Wi-Fi power save (see [SSH hangs or
-freezes over Wi-Fi](#ssh-hangs-or-freezes-over-wi-fi)) are set explicitly.
+firmware and U-Boot), the `nixos` user, SSH, the Nix flakes/command settings
+and Wi-Fi power save (see [SSH hangs or freezes over
+Wi-Fi](#ssh-hangs-or-freezes-over-wi-fi)) are set explicitly.
 
 ### Not supported by mainline yet
 
@@ -254,7 +265,8 @@ freezes over Wi-Fi](#ssh-hangs-or-freezes-over-wi-fi)) are set explicitly.
 
 | File | Purpose |
 | --- | --- |
-| `flake.nix` | Inputs, native and cross configurations, both variants, dev shell |
+| `flake.nix` | Inputs, native and cross configurations, `lib.profiles`/`lib.mkSystem`, `nixosModules`, dev shell |
+| `hosts/orangepi5b/options.nix` | `orangepi5b.username`, `orangepi5b.initialPassword` and `orangepi5b.uboot` options |
 | `hosts/orangepi5b/common.nix` | Shared kernel, boot, storage, users, services, SD-image assembly |
 | `hosts/orangepi5b/server.nix` | Minimal server profile |
 | `hosts/orangepi5b/full.nix` | GPU/NPU/media profile |
@@ -350,15 +362,16 @@ Both images create one normal user, `nixos`, with the initial password
 - Full image: member of `wheel`, `networkmanager`, `video`, `render` and
   `audio`.
 
-Change the password with `passwd` after the first login. The username and
-initial password are defined once in `flake.nix`:
+Change the password with `passwd` after the first login. The stock images use
+the defaults from `flake.nix`:
 
 ```nix
-username = "nixos";
-initialPassword = "nixos";
+defaultUsername = "nixos";
+defaultInitialPassword = "nixos";
 ```
 
-Change them there and rebuild to use your own account. The generic image
+Derivative flakes can pass `username`/`initialPassword` to `lib.mkSystem`, or
+set the `orangepi5b.username`/`orangepi5b.initialPassword` options. The generic image
 trusts no SSH keys by default; add your own key and set
 `services.openssh.settings.PasswordAuthentication = false` in
 `hosts/orangepi5b/common.nix` before exposing the board to a network.
