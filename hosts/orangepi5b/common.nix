@@ -189,11 +189,19 @@ in
   # A single generic user, like the `nixos` user on the installation media.
   # Change `username` and `initialPassword` in flake.nix, and change the
   # password after the first login.
-  # Public keys for passwordless SSH. Only the public half belongs in the
-  # repository; the private key stays in ~/.ssh on the machine you deploy
-  # from. The `nixos` key is for administration, the `root` key is what
-  # `nixos-rebuild --target-host root@...` uses (see "Deploy over the
-  # network" in README.md). Remove these and set
+  #
+  # No SSH keys are trusted by default. Add your own public key in a
+  # derivative of this flake, for example:
+  #
+  #   users.users.${username}.openssh.authorizedKeys.keys = [
+  #     "ssh-ed25519 AAAA... you@example"
+  #   ];
+  #   users.users.root.openssh.authorizedKeys.keys = [
+  #     "ssh-ed25519 AAAA... you@example"
+  #   ];
+  #
+  # The `root` key is what `nixos-rebuild --target-host root@...` uses (see
+  # "Deploy over the network" in README.md). Set
   # `services.openssh.settings.PasswordAuthentication = false` once key login
   # works.
   users.users.${username} = {
@@ -204,13 +212,7 @@ in
       "wheel"
       "networkmanager"
     ];
-    openssh.authorizedKeys.keys = [
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICnAVq2d86qZlgn9hpGbwAGrnIj4ix0mFnsDtavsV3Q7 orangepi5b-deploy"
-    ];
   };
-  users.users.root.openssh.authorizedKeys.keys = [
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICnAVq2d86qZlgn9hpGbwAGrnIj4ix0mFnsDtavsV3Q7 orangepi5b-deploy"
-  ];
 
   # ---------------------------------------------------------------------------
   # SD/eMMC image
